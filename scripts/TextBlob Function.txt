@@ -1,0 +1,20 @@
+# Textblob tweet sentiment analysis functions
+from textblob import TextBlob
+def get_post_sentiment_value(Text):
+  analysis = TextBlob(Text)
+  return analysis.sentiment.polarity
+
+def get_post_sentiment_category(Text): 
+  ''' 
+  Utility function to classify sentiment of passed tweet 
+  using textblob's sentiment method 
+  '''
+  # create TextBlob object of passed reddit text 
+  analysis = TextBlob(Text)
+  # set sentiment 
+  if analysis.sentiment.polarity > 0: 
+    return 'positive'
+  elif analysis.sentiment.polarity == 0: 
+    return 'neutral'
+  else: 
+    return 'negative'
