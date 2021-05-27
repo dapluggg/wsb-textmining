@@ -6,10 +6,7 @@ Created on Mon May 17 21:21:43 2021
 """
 
 import pandas as pd
-import pandasql as pdsql
 import re
-import matplotlib.pyplot as plt
-import seaborn as sns
 import datetime
 
 # %%
@@ -48,6 +45,8 @@ def cleanPostDf(df):
     df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
     # df[['created_utc_date','created_utc_time']] = df.created_utc.str.split(expand=True)
 
+    df['doc_type'] = 'wsb_post'
+
     return df
 
 
@@ -81,12 +80,14 @@ def cleanCommentsDf(df):
     df.parent_id = df.parent_id.apply(lambda x: re.sub(r't\d+\_', '', x))
     df.link_id = df.link_id.apply(lambda x: re.sub(r't\d+\_', '', x))
 
+    df['doc_type'] = 'wsb_comment'
+
     return df
 
 
 # Give reddit body, will look for stock tickers.
 # Returns empty array if nothing found.
-def getTickers(body):
+def getTickersByRe(body):
     note_search = re.search(r"\s+(\$([A-Z]{1,4})|\([A-Z]{1,4}\))\s+", body)
 
     # If the title exists, extract and return it.
@@ -94,6 +95,24 @@ def getTickers(body):
         return note_search.group()
     return ""
 
+def getTickersByName(text):
+    companyNames = {'gamestop': 'GME',
+                    'black berry': 'BB',
+                    'blackberry': 'BB',
+                    'nokia': 'NOK',
+                    'silver': 'SLV',
+                    'kelloggs': 'K',
+                    'tesla':'TSLA',
+                    'space':'SPCE'}
+
+    # Loop through looking for the name.
+    for k in companyNames:
+        pattern = r"\s+"+ k +"\s+"
+        # If the title exists, extract and return it.
+        if (re.search(pattern, text) == True):
+            return companyNames[k]
+
+    return ""
 
 def runIngest(on):
     resultsFileLoc = on['folderLoc'] + '\\processed\\' + on['job']
@@ -108,14 +127,16 @@ def runIngest(on):
         df = cleanCommentsDf(df)
 
     # Find stock tickers
-    df['body_tickers'] = df.body.apply(lambda x: getTickers(x))
+    df['body_tickers'] = df.body.apply(lambda x: getTickersByRe(x))
+    #df['body_tickers'] = df[df['body_tickers'].str.len() <= 0]['body'].apply(lambda x: getTickersByName(x))
 
     df.body = df.body.str.lower()
     df.body = df.body.str.replace('[\$\(\)]', '', regex=True)
     df.body_tickers = df.body_tickers.str.replace('[\$\(\)]', '', regex=True)
 
     if (on['job'] == 'wsb_post_results'):
-        df['title_tickers'] = df.title.apply(lambda x: getTickers(x))
+        df['title_tickers'] = df.title.apply(lambda x: getTickersByRe(x))
+        #df['title_tickers'] = df[df['body_tickers'].str.len() <= 0]['title'].apply(lambda x: getTickersByName(x))
         df.title = df.title.str.lower()
         df.title = df.title.str.replace('[\$\(\)]', '', regex=True)
         df.title_tickers = df.title_tickers.str.replace('[\$\(\)]', '', regex=True)
@@ -126,7 +147,6 @@ def runIngest(on):
 
     # return back to main thread
     return {'job': on['job'], 'df': df}
-
 
 # %%
 if __name__ == '__main__':
@@ -172,9 +192,9 @@ if __name__ == '__main__':
             print('wsb_comments_results')
             wsbCommentsDf = job['df']
 
-    print(wsbPostDf[['body_tickers', 'body']])
-    print(wsbPostDf[['title_tickers', 'title']])
-    print(wsbCommentsDf[['body_tickers', 'body']])
+    #print(wsbPostDf[['body_tickers', 'body']])
+    #print(wsbPostDf[['title_tickers', 'title']])
+    #print(wsbCommentsDf[['body_tickers', 'body']])
     # %%
     # Merge the comments with the original post.  Let the comments drive the
     # number of records.
