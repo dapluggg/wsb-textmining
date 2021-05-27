@@ -42,7 +42,7 @@ def getData (filePath):
 
 def main():
     # File path.
-    filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\wsb_post*.gzip'
+    filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\wsb_*.gzip'
     baseIndexName = 'wsb_post'
 
     # Find all wsb csv files.
