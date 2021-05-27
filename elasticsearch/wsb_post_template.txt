@@ -1,0 +1,56 @@
+PUT _template/wsb_post_template
+{
+  "order" : 0,
+    "index_patterns" : [
+      "wsb_post*"
+    ],
+    "settings" : {
+      "index" : {
+        "number_of_shards" : "1",
+        "number_of_replicas" : "0"
+      }
+    },
+    "mappings" : {
+      "properties" : {
+        "created_utc_datetime" : {
+          "format" : "date_hour_minute_second",
+          "type" : "date"
+        },
+        "author" : {
+          "type" : "keyword"
+        },
+        "author_premium" : {
+          "type" : "boolean"
+        },
+        "body_tickers" : {
+          "type" : "keyword"
+        },
+        "title_tickers" : {
+          "type" : "keyword"
+        },
+        "body" : {
+          "type":"text",
+          "fielddata": true,
+          "analyzer": "stop"
+        },
+        "title" : {
+          "type":"text",
+          "fielddata": true,
+          "analyzer": "stop"
+        },
+        "id" : {
+          "type" : "keyword"
+        },
+        "num_comments" : {
+          "type" : "integer"
+        },
+        "subreddit" : {
+          "type" : "keyword"
+        },
+        "upvote_ratio" : {
+          "type" : "float"
+        }
+      }
+    },
+    "aliases" : { }
+}
