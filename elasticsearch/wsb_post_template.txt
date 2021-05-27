@@ -1,8 +1,13 @@
-PUT _template/wsb_post_template
+#Delete the WSB ES index.
+#All data will be removed.
+DELETE wsb_*
+
+#Put the index pattern for both WSB comments and posts.
+PUT _template/wsb_template
 {
   "order" : 0,
     "index_patterns" : [
-      "wsb_post*"
+      "wsb_*"
     ],
     "settings" : {
       "index" : {
@@ -41,6 +46,12 @@ PUT _template/wsb_post_template
         "id" : {
           "type" : "keyword"
         },
+        "link_id" : {
+          "type" : "keyword"
+        },
+        "parent_id" : {
+          "type" : "keyword"
+        },
         "num_comments" : {
           "type" : "integer"
         },
@@ -49,8 +60,14 @@ PUT _template/wsb_post_template
         },
         "upvote_ratio" : {
           "type" : "float"
+        },
+        "doc_type" : {
+          "type" : "keyword"
         }
       }
     },
     "aliases" : { }
 }
+
+#Validate the template was created.
+GET _template/wsb_template
