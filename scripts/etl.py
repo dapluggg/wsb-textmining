@@ -179,17 +179,17 @@ if __name__ == '__main__':
     with Pool(len(jobs)) as p:
         print('start')
         job_list = p.map(runIngest, jobs)
-        print(job_list)
+        #print(job_list)
         print('done')
     # %%
     wsbPostDf = pd.DataFrame()
     wsbCommentsDf = pd.DataFrame()
     for job in job_list:
         if (job['job'] == 'wsb_post_results'):
-            print('wsb_post_results')
+            #print('wsb_post_results')
             wsbPostDf = job['df']
         else:
-            print('wsb_comments_results')
+            #print('wsb_comments_results')
             wsbCommentsDf = job['df']
 
     #print(wsbPostDf[['body_tickers', 'body']])
