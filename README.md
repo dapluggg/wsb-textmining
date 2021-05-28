@@ -1,2 +1,2 @@
 # wsb-textmining
- IST 738 Text Mining Group project
+ IST 736 Text Mining Group project
