@@ -9,6 +9,13 @@ import pandas as pd
 import re
 import datetime
 
+#NLTK IMPORTS
+import nltk
+from nltk.collocations import *
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('stopwords')
+
 # %%
 def cleanPostDf(df):
     # Rename the self text column to body
@@ -42,10 +49,12 @@ def cleanPostDf(df):
     df.body = df.body.apply(lambda x: re.sub(r'\s+', ' ', x, flags=re.I))
 
     # Convert epoch
-    df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
-    # df[['created_utc_date','created_utc_time']] = df.created_utc.str.split(expand=True)
+    df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
 
     df['doc_type'] = 'wsb_post'
+
+    #df['tokens'] = getUnigrams(df['body'])
+    #df['library_size'] = df['tokens'].str.len()
 
     return df
 
@@ -73,8 +82,7 @@ def cleanCommentsDf(df):
     df.body = df.body.apply(lambda x: re.sub(r'\s+', ' ', x, flags=re.I))
 
     # Convert epoch
-    df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
-    # df[['created_utc_date','created_utc_time']] = df.created_utc.str.split(expand=True)
+    df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
 
     # Remove top-level number from ids
     df.parent_id = df.parent_id.apply(lambda x: re.sub(r't\d+\_', '', x))
@@ -83,7 +91,6 @@ def cleanCommentsDf(df):
     df['doc_type'] = 'wsb_comment'
 
     return df
-
 
 # Give reddit body, will look for stock tickers.
 # Returns empty array if nothing found.
@@ -108,17 +115,29 @@ def getTickersByName(text):
     # Loop through looking for the name.
     for k in companyNames:
         pattern = r"\s+"+ k +"\s+"
+
         # If the title exists, extract and return it.
-        if (re.search(pattern, text) == True):
+        if re.search(pattern, text):
             return companyNames[k]
 
     return ""
+
+# get the stock data to be merged with the WSB content.
+def getStockData(on):
+    stockLoc = on['folderLoc'] + '\\rawdata\\gme_amc_cleandata.csv'
+    stockDf = pd.read_csv(stockLoc)
+    gmeDf = stockDf[["Date", "GME RSI", "GME.Open", "GME.High", "GME.Low", "GME.Close", "GME.Volume", "GME.Adjusted"]]
+    gmeDf.columns = ["date", "rsi", "open", "high", "low", "close", "volume", "adjusted"]
+    gmeDf['ticker'] = 'GME'
+    gmeDf = gmeDf.sort_values(by=['date'])
+    #print(gmeDf)
+    return gmeDf
 
 def runIngest(on):
     resultsFileLoc = on['folderLoc'] + '\\processed\\' + on['job']
     fileLoc = on['folderLoc'] + '\\rawdata\\' + on['filename']
     header = on['header']
-    df = pd.read_csv(fileLoc, usecols=header)#, nrows=100)
+    df = pd.read_csv(fileLoc, usecols=header)#, nrows=5000)
 
     # Clean the text data.
     if (on['job'] == 'wsb_post_results'):
@@ -128,18 +147,44 @@ def runIngest(on):
 
     # Find stock tickers
     df['body_tickers'] = df.body.apply(lambda x: getTickersByRe(x))
-    #df['body_tickers'] = df[df['body_tickers'].str.len() <= 0]['body'].apply(lambda x: getTickersByName(x))
+    df['body_tickers'] = df['body_tickers'].str.strip()
+    #df['body_tickers'] = df[df['body_tickers'].str.len() <= 0].body.apply(lambda x: getTickersByName(x))
+    #df['body_tickers'] = df['body'].apply(lambda x: getTickersByName(x))
 
     df.body = df.body.str.lower()
     df.body = df.body.str.replace('[\$\(\)]', '', regex=True)
     df.body_tickers = df.body_tickers.str.replace('[\$\(\)]', '', regex=True)
 
+    # Merge stock data for both GME
+    gmeDf = getStockData(on)
+    df['created_utc_datetime'] = df['created_utc_datetime'].astype(str)
+    gmeDf['date'] = gmeDf['date'].astype(str)
+    df = pd.merge(df, gmeDf, left_on=['created_utc_datetime', 'body_tickers'], right_on=['date', 'ticker'], how='left')
+    #print(df[df['body_tickers'] == 'GME'][['created_utc_datetime', 'date', 'body_tickers', 'rsi', 'close']])
+    #print(df.shape)
+
     if (on['job'] == 'wsb_post_results'):
         df['title_tickers'] = df.title.apply(lambda x: getTickersByRe(x))
+        df['title_tickers'] = df['title_tickers'].str.strip()
         #df['title_tickers'] = df[df['body_tickers'].str.len() <= 0]['title'].apply(lambda x: getTickersByName(x))
         df.title = df.title.str.lower()
         df.title = df.title.str.replace('[\$\(\)]', '', regex=True)
         df.title_tickers = df.title_tickers.str.replace('[\$\(\)]', '', regex=True)
+
+        #titleDf = df[(df['body_tickers'] != 'GME') & (df['title_tickers'] == 'GME')]
+        titleDf = df[df['title_tickers'] == 'GME']
+        titleDf = titleDf.drop(columns=["date", "rsi", "open", "high", "low", "close", "volume", "adjusted", "ticker"])
+        titleDf = pd.merge(titleDf, gmeDf, left_on=['created_utc_datetime', 'title_tickers'], right_on=['date', 'ticker'], how='left')
+        print(titleDf[['created_utc_datetime', 'date', 'title_tickers', 'rsi', 'close']])
+
+        df = df[df['title_tickers'] != 'GME'] # drop the rows with GME in the title.
+        df = pd.concat([df, titleDf])  # Put the removed back with stock data.
+
+    df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
+    df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]] = df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]].fillna(value=0) 
+    df = df.sort_values(by=['created_utc_datetime'])
+    print(df[(df['body_tickers'] == 'GME') | (df['title_tickers'] == 'GME')][['created_utc_datetime','body_tickers','title_tickers','close']])
+    print(df.shape)
 
     # Write results to file.
     df.to_csv(resultsFileLoc + '.csv', index=False)
@@ -169,6 +214,8 @@ if __name__ == '__main__':
                    'folderLoc': folderLoc,
                    'filename': wsbComments,
                    'header': wsbCommHeaders}
+
+    runIngest(postDic)
 
     # The jobs to send to the thread pool.
     jobs = [postDic, commentsDic]
