@@ -171,11 +171,9 @@ def runIngest(on):
         df.title = df.title.str.replace('[\$\(\)]', '', regex=True)
         df.title_tickers = df.title_tickers.str.replace('[\$\(\)]', '', regex=True)
 
-        #titleDf = df[(df['body_tickers'] != 'GME') & (df['title_tickers'] == 'GME')]
         titleDf = df[df['title_tickers'] == 'GME']
         titleDf = titleDf.drop(columns=["date", "rsi", "open", "high", "low", "close", "volume", "adjusted", "ticker"])
         titleDf = pd.merge(titleDf, gmeDf, left_on=['created_utc_datetime', 'title_tickers'], right_on=['date', 'ticker'], how='left')
-        print(titleDf[['created_utc_datetime', 'date', 'title_tickers', 'rsi', 'close']])
 
         df = df[df['title_tickers'] != 'GME'] # drop the rows with GME in the title.
         df = pd.concat([df, titleDf])  # Put the removed back with stock data.
@@ -183,8 +181,8 @@ def runIngest(on):
     df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
     df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]] = df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]].fillna(value=0) 
     df = df.sort_values(by=['created_utc_datetime'])
-    print(df[(df['body_tickers'] == 'GME') | (df['title_tickers'] == 'GME')][['created_utc_datetime','body_tickers','title_tickers','close']])
-    print(df.shape)
+    #print(df[(df['body_tickers'] == 'GME') | (df['title_tickers'] == 'GME')][['created_utc_datetime','body_tickers','title_tickers','close']])
+    #print(df.shape)
 
     # Write results to file.
     df.to_csv(resultsFileLoc + '.csv', index=False)

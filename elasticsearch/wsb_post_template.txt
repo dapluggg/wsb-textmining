@@ -63,6 +63,24 @@ PUT _template/wsb_template
         },
         "doc_type" : {
           "type" : "keyword"
+        },
+        "rsi" : {
+          "type" : "float"
+        },
+        "open" : {
+          "type" : "float"
+        },
+        "high" : {
+          "type" : "float"
+        },
+        "low" : {
+          "type" : "float"
+        },
+        "close" : {
+          "type" : "float"
+        },
+        "volume" : {
+          "type" : "float"
         }
       }
     },
