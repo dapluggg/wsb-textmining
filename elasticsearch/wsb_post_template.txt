@@ -33,6 +33,16 @@ PUT _template/wsb_template
         "title_tickers" : {
           "type" : "keyword"
         },
+        "body_filtered" : {
+          "type":"text",
+          "fielddata": true,
+          "analyzer": "whitespace"
+        },
+        "title_filtered" : {
+          "type":"text",
+          "fielddata": true,
+          "analyzer": "whitespace"
+        },
         "body" : {
           "type":"text",
           "fielddata": true,
@@ -80,6 +90,12 @@ PUT _template/wsb_template
           "type" : "float"
         },
         "volume" : {
+          "type" : "float"
+        },
+        "body_polarity" : {
+          "type" : "float"
+        },
+        "body_subjectivity" : {
           "type" : "float"
         }
       }
