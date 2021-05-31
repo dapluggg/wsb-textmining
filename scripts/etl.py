@@ -8,15 +8,16 @@ Created on Mon May 17 21:21:43 2021
 import pandas as pd
 import re
 import datetime
+import emoji
+from textblob import TextBlob
 
 #NLTK IMPORTS
 import nltk
-from nltk.collocations import *
-nltk.download('punkt')
-nltk.download('averaged_perceptron_tagger')
+from nltk.corpus import stopwords
 nltk.download('stopwords')
 
 # %%
+
 def cleanPostDf(df):
     # Rename the self text column to body
     df = df.rename(columns={'selftext': 'body'}, inplace=False)
@@ -28,36 +29,21 @@ def cleanPostDf(df):
     df = df.dropna(subset=['body'])
     df = df[df['body'] != 'nan']
 
-    # Remove handlers
-    df.title = df.title.apply(lambda x: re.sub('@[^\s]+', '', x))
-    df.body = df.body.apply(lambda x: re.sub('@[^\s]+', '', x))
+    df.body = df.body.apply(lambda x: emoji.demojize(x, delimiters=(' ', '')))
+    df.title = df.title.apply(lambda x: emoji.demojize(x, delimiters=(' ', '')))
 
-    # Remove URLS
-    df.title = df.title.apply(lambda x: re.sub(r"http\S+", "", x))
-    df.body = df.body.apply(lambda x: re.sub(r"http\S+", "", x))
+    df.body = df.body.apply(lambda x: cleanData(x))
+    df.title = df.title.apply(lambda x: cleanData(x))
 
-    # Remove all the special characters
-    df.title = df.title.apply(lambda x: re.sub(r'[^a-zA-Z\$\(\)\s\t]', '', x))
-    df.body = df.body.apply(lambda x: re.sub(r'[^a-zA-Z\$\(\)\s\t]', '', x))
-
-    # remove all single characters
-    df.title = df.title.apply(lambda x: re.sub(r'\s+[a-zA-Z]\s+', '', x))
-    df.body = df.body.apply(lambda x: re.sub(r'\s+[a-zA-Z]\s+', '', x))
-
-    # Substituting multiple spaces with single space
-    df.title = df.title.apply(lambda x: re.sub(r'\s+', ' ', x, flags=re.I))
-    df.body = df.body.apply(lambda x: re.sub(r'\s+', ' ', x, flags=re.I))
+    df['body_filtered'] = df.body.apply(lambda x: stopWordFilter(x))
+    df['title_filtered'] = df.title.apply(lambda x: stopWordFilter(x))
 
     # Convert epoch
     df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
 
     df['doc_type'] = 'wsb_post'
 
-    #df['tokens'] = getUnigrams(df['body'])
-    #df['library_size'] = df['tokens'].str.len()
-
     return df
-
 
 def cleanCommentsDf(df):
     df['body'] = df['body'].astype(str)
@@ -66,20 +52,11 @@ def cleanCommentsDf(df):
     df = df.dropna(subset=['body'])
     df = df[df['body'] != 'nan']
 
-    # Remove handlers
-    df.body = df.body.apply(lambda x: re.sub('@[^\s]+', ' ', x))
+    df.body = df.body.apply(lambda  x: emoji.demojize(x, delimiters=(' ', '')))
 
-    # Remove URLS
-    df.body = df.body.apply(lambda x: re.sub(r"http\S+", " ", x))
+    df.body = df.body.apply(lambda x: cleanData(x))
 
-    # Remove all the special characters
-    df.body = df.body.apply(lambda x: re.sub(r'[^a-zA-Z\$\(\)\s\-\_]', '', x))
-
-    # remove all single characters
-    df.body = df.body.apply(lambda x: re.sub(r'\s+[a-zA-Z]\s+', '', x))
-
-    # Substituting multiple spaces with single space
-    df.body = df.body.apply(lambda x: re.sub(r'\s+', ' ', x, flags=re.I))
+    df['body_filtered'] = df.body.apply(lambda x: stopWordFilter(x))
 
     # Convert epoch
     df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
@@ -91,6 +68,28 @@ def cleanCommentsDf(df):
     df['doc_type'] = 'wsb_comment'
 
     return df
+
+def cleanData(x):
+    text = x
+    text = re.sub('@[^\s]+', ' ', text)
+    text = re.sub(r"http\S+", " ", text)
+    text = re.sub(r'\s+[a-zA-Z]\s+', ' ', text)
+    text = re.sub('\[.*?\]', '', text) # remove square brackets
+    text = re.sub(r'[\~\`\!\@\#\%\^\&\*\+\=\{\}\[\]\|\\\:\;\"\<\>\?\,\.\/]','',text) # remove punctuation
+    text = re.sub('\w*\d+\w*', ' ', text) # remove words containing numbers
+    text = re.sub(r'\d+', ' ', text)  # Remove numbers
+    text = re.sub(r'[\s\t\n\r]+', ' ', text, flags=re.I)
+    return text
+
+# Scrub the text of english stopwords from NLTK.
+def stopWordFilter(txt):
+    stopWords = set(stopwords.words('english'))
+    t = txt
+    for s in stopWords:
+        pattern = r"\s+" + s + "\s+"
+        t = re.sub(pattern, ' ', t)
+
+    return(t)
 
 # Give reddit body, will look for stock tickers.
 # Returns empty array if nothing found.
@@ -137,7 +136,7 @@ def runIngest(on):
     resultsFileLoc = on['folderLoc'] + '\\processed\\' + on['job']
     fileLoc = on['folderLoc'] + '\\rawdata\\' + on['filename']
     header = on['header']
-    df = pd.read_csv(fileLoc, usecols=header)#, nrows=5000)
+    df = pd.read_csv(fileLoc, usecols=header)#, nrows=1000)
 
     # Clean the text data.
     if (on['job'] == 'wsb_post_results'):
@@ -145,14 +144,18 @@ def runIngest(on):
     else:
         df = cleanCommentsDf(df)
 
+    # Polarity subjectivity
+    df['body_polarity'] = df.body.apply(lambda x: TextBlob(x).sentiment.polarity)
+    df['body_subjectivity'] = df.body.apply(lambda x: TextBlob(x).sentiment.subjectivity)
+
     # Find stock tickers
     df['body_tickers'] = df.body.apply(lambda x: getTickersByRe(x))
     df['body_tickers'] = df['body_tickers'].str.strip()
-    #df['body_tickers'] = df[df['body_tickers'].str.len() <= 0].body.apply(lambda x: getTickersByName(x))
-    #df['body_tickers'] = df['body'].apply(lambda x: getTickersByName(x))
 
     df.body = df.body.str.lower()
     df.body = df.body.str.replace('[\$\(\)]', '', regex=True)
+    df.body_filtered = df.body_filtered.str.lower()
+    df.body_filtered = df.body_filtered.str.replace('[\$\(\)]', '', regex=True)
     df.body_tickers = df.body_tickers.str.replace('[\$\(\)]', '', regex=True)
 
     # Merge stock data for both GME
@@ -160,15 +163,14 @@ def runIngest(on):
     df['created_utc_datetime'] = df['created_utc_datetime'].astype(str)
     gmeDf['date'] = gmeDf['date'].astype(str)
     df = pd.merge(df, gmeDf, left_on=['created_utc_datetime', 'body_tickers'], right_on=['date', 'ticker'], how='left')
-    #print(df[df['body_tickers'] == 'GME'][['created_utc_datetime', 'date', 'body_tickers', 'rsi', 'close']])
-    #print(df.shape)
 
     if (on['job'] == 'wsb_post_results'):
         df['title_tickers'] = df.title.apply(lambda x: getTickersByRe(x))
         df['title_tickers'] = df['title_tickers'].str.strip()
-        #df['title_tickers'] = df[df['body_tickers'].str.len() <= 0]['title'].apply(lambda x: getTickersByName(x))
         df.title = df.title.str.lower()
         df.title = df.title.str.replace('[\$\(\)]', '', regex=True)
+        df.title_filtered = df.title_filtered.str.lower()
+        df.title_filtered = df.title_filtered.str.replace('[\$\(\)]', '', regex=True)
         df.title_tickers = df.title_tickers.str.replace('[\$\(\)]', '', regex=True)
 
         titleDf = df[df['title_tickers'] == 'GME']
@@ -181,15 +183,20 @@ def runIngest(on):
     df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
     df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]] = df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]].fillna(value=0) 
     df = df.sort_values(by=['created_utc_datetime'])
-    #print(df[(df['body_tickers'] == 'GME') | (df['title_tickers'] == 'GME')][['created_utc_datetime','body_tickers','title_tickers','close']])
-    #print(df.shape)
 
     # Write results to file.
-    df.to_csv(resultsFileLoc + '.csv', index=False)
-    df.to_parquet(resultsFileLoc + '.gzip', compression='gzip')
+    putToDisk(resultsFileLoc, df)
+
+    #print(df['body_filtered'])
+    #print(df['title_filtered'])
 
     # return back to main thread
     return {'job': on['job'], 'df': df}
+
+# Puts the posts and comments to both csv and parque.
+def putToDisk(resultsFileLoc, df):
+     df.to_csv(resultsFileLoc + '.csv', index=False)
+     df.to_parquet(resultsFileLoc + '.gzip', compression='gzip')
 
 # %%
 if __name__ == '__main__':
@@ -213,8 +220,12 @@ if __name__ == '__main__':
                    'filename': wsbComments,
                    'header': wsbCommHeaders}
 
+    print('starting posts')
     runIngest(postDic)
+    print('starting comments')
+    runIngest(commentsDic)
 
+    '''
     # The jobs to send to the thread pool.
     jobs = [postDic, commentsDic]
     job_list = []
@@ -236,6 +247,7 @@ if __name__ == '__main__':
         else:
             #print('wsb_comments_results')
             wsbCommentsDf = job['df']
+    '''
 
     #print(wsbPostDf[['body_tickers', 'body']])
     #print(wsbPostDf[['title_tickers', 'title']])
