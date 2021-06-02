@@ -29,11 +29,11 @@ def cleanPostDf(df):
     df = df.dropna(subset=['body'])
     df = df[df['body'] != 'nan']
 
-    df.body = df.body.apply(lambda x: emoji.demojize(x, delimiters=(' ', '')))
-    df.title = df.title.apply(lambda x: emoji.demojize(x, delimiters=(' ', '')))
-
     df.body = df.body.apply(lambda x: cleanData(x))
     df.title = df.title.apply(lambda x: cleanData(x))
+
+    df.body = df.body.apply(lambda x: emoji.demojize(x))
+    df.title = df.title.apply(lambda x: emoji.demojize(x))
 
     df['body_filtered'] = df.body.apply(lambda x: stopWordFilter(x))
     df['title_filtered'] = df.title.apply(lambda x: stopWordFilter(x))
@@ -52,9 +52,8 @@ def cleanCommentsDf(df):
     df = df.dropna(subset=['body'])
     df = df[df['body'] != 'nan']
 
-    df.body = df.body.apply(lambda  x: emoji.demojize(x, delimiters=(' ', '')))
-
     df.body = df.body.apply(lambda x: cleanData(x))
+    df.body = df.body.apply(lambda x: emoji.demojize(x))
 
     df['body_filtered'] = df.body.apply(lambda x: stopWordFilter(x))
 
@@ -73,9 +72,9 @@ def cleanData(x):
     text = x
     text = re.sub('@[^\s]+', ' ', text)
     text = re.sub(r"http\S+", " ", text)
-    text = re.sub(r'\s+[a-zA-Z]\s+', ' ', text)
-    text = re.sub('\[.*?\]', '', text) # remove square brackets
-    text = re.sub(r'[\~\`\!\@\#\%\^\&\*\+\=\{\}\[\]\|\\\:\;\"\<\>\?\,\.\/]','',text) # remove punctuation
+    #text = re.sub(r'\s+[a-zA-Z]\s+', ' ', text)
+    #text = re.sub('\[.*?\]', '', text) # remove square brackets
+    text = re.sub(r'[\~\`\!\@\#\%\^\&\*\+\=\{\}\[\]\|\\\:\;\"\<\>\?\,\.\/]',' ',text) # remove punctuation
     text = re.sub('\w*\d+\w*', ' ', text) # remove words containing numbers
     text = re.sub(r'\d+', ' ', text)  # Remove numbers
     text = re.sub(r'[\s\t\n\r]+', ' ', text, flags=re.I)
