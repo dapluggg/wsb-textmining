@@ -46,12 +46,12 @@ PUT _template/wsb_template
         "body" : {
           "type":"text",
           "fielddata": true,
-          "analyzer": "stop"
+          "analyzer": "whitespace"
         },
         "title" : {
           "type":"text",
           "fielddata": true,
-          "analyzer": "stop"
+          "analyzer": "whitespace"
         },
         "id" : {
           "type" : "keyword"
