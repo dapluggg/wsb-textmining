@@ -40,24 +40,26 @@ def getData (filePath):
     glDf = pd.read_parquet(filePath)
     return glDf
 
-def main():
-    # File path.
-    filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\wsb_*.gzip'
-    baseIndexName = 'wsb_post'
+def main(on):
+    baseIndexName = 'wsb_post_new'
+    print("Processing file, ", on)
+    df = getData(on)
 
-    # Find all wsb csv files.
-    files = g.glob(filePath, recursive=True)
-    for f in files:
-        print("Processing file, ", f)
-        # Scrub the data.
-        df = getData(f)
-
-        # Establish elastic search instance.
-        indexName = baseIndexName
-        esIndexRecord(df, indexName)
+    # Establish elastic search instance.
+    indexName = baseIndexName
+    esIndexRecord(df, indexName)
 
 if __name__ == '__main__':
     logMessage("Executing batch process.")
-    main()
+
+    filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\wsb_*.gzip'
+    files = g.glob(filePath, recursive=True)
+
+    # Multi processing into elastic.
+    from multiprocessing import Pool
+    with Pool(len(files)) as p:
+        print(p.map(main, files))
+
+    #main()
     logMessage("Batch process done.")
     os._exit(0)
