@@ -97,6 +97,12 @@ PUT _template/wsb_template
         },
         "body_subjectivity" : {
           "type" : "float"
+        },
+        "body_vadar_sentiment" : {
+          "type" : "keyword"
+        },
+        "title_vadar_sentiment" : {
+          "type" : "keyword"
         }
       }
     },
