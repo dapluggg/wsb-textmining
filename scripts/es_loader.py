@@ -41,7 +41,7 @@ def getData (filePath):
     return glDf
 
 def main(on):
-    baseIndexName = 'wsb_post_new'
+    baseIndexName = 'wsb_post'
     print("Processing file, ", on)
     df = getData(on)
 
