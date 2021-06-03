@@ -10,11 +10,14 @@ import re
 import datetime
 import emoji
 from textblob import TextBlob
+from time import gmtime, strftime
 
 #NLTK IMPORTS
 import nltk
 from nltk.corpus import stopwords
 nltk.download('stopwords')
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+nltk.download('vader_lexicon')
 
 # %%
 
@@ -72,8 +75,7 @@ def cleanData(x):
     text = x
     text = re.sub('@[^\s]+', ' ', text)
     text = re.sub(r"http\S+", " ", text)
-    #text = re.sub(r'\s+[a-zA-Z]\s+', ' ', text)
-    #text = re.sub('\[.*?\]', '', text) # remove square brackets
+    text = re.sub(r'\s+[a-zA-Z]\s+', ' ', text)  # remove single chars
     text = re.sub(r'[\~\`\!\@\#\%\^\&\*\+\=\{\}\[\]\|\\\:\;\"\<\>\?\,\.\/]',' ',text) # remove punctuation
     text = re.sub('\w*\d+\w*', ' ', text) # remove words containing numbers
     text = re.sub(r'\d+', ' ', text)  # Remove numbers
@@ -131,11 +133,22 @@ def getStockData(on):
     #print(gmeDf)
     return gmeDf
 
+# Vadar Sentiment
+def vadar_sentiment(text):
+    vader_sentiment = SentimentIntensityAnalyzer().polarity_scores(text)
+    if vader_sentiment == 0:
+        return "neutral"
+    elif vader_sentiment['neg'] != 0:
+        return "negative"
+    elif vader_sentiment['pos'] != 0:
+        return "positive"
+    return "neutral"
+
 def runIngest(on):
     resultsFileLoc = on['folderLoc'] + '\\processed\\' + on['job']
     fileLoc = on['folderLoc'] + '\\rawdata\\' + on['filename']
     header = on['header']
-    df = pd.read_csv(fileLoc, usecols=header)#, nrows=1000)
+    df = pd.read_csv(fileLoc, usecols=header)#, nrows=200000)
 
     # Clean the text data.
     if (on['job'] == 'wsb_post_results'):
@@ -146,6 +159,7 @@ def runIngest(on):
     # Polarity subjectivity
     df['body_polarity'] = df.body.apply(lambda x: TextBlob(x).sentiment.polarity)
     df['body_subjectivity'] = df.body.apply(lambda x: TextBlob(x).sentiment.subjectivity)
+    df['body_vadar_sentiment'] = df.body.apply(lambda x: vadar_sentiment(x))
 
     # Find stock tickers
     df['body_tickers'] = df.body.apply(lambda x: getTickersByRe(x))
@@ -164,6 +178,7 @@ def runIngest(on):
     df = pd.merge(df, gmeDf, left_on=['created_utc_datetime', 'body_tickers'], right_on=['date', 'ticker'], how='left')
 
     if (on['job'] == 'wsb_post_results'):
+        df['title_vadar_sentiment'] = df.body.apply(lambda x: vadar_sentiment(x))
         df['title_tickers'] = df.title.apply(lambda x: getTickersByRe(x))
         df['title_tickers'] = df['title_tickers'].str.strip()
         df.title = df.title.str.lower()
@@ -186,7 +201,7 @@ def runIngest(on):
     # Write results to file.
     putToDisk(resultsFileLoc, df)
 
-    #print(df['body_filtered'])
+    #print(df[['body_vadar_sentiment','title_vadar_sentiment']])
     #print(df['title_filtered'])
 
     # return back to main thread
@@ -194,8 +209,17 @@ def runIngest(on):
 
 # Puts the posts and comments to both csv and parque.
 def putToDisk(resultsFileLoc, df):
-     df.to_csv(resultsFileLoc + '.csv', index=False)
-     df.to_parquet(resultsFileLoc + '.gzip', compression='gzip')
+    size = df.shape[0]
+    step = 250000
+    end = step
+    count = 1
+    for x in range(0, size, step):
+        print(x, end)
+        d = df[x:end]
+        d.to_csv(resultsFileLoc + '_' + str(count) + '.csv', index=False)
+        d.to_parquet(resultsFileLoc + '_' + str(count) + '.gzip', compression='gzip')
+        end += step
+        count += 1
 
 # %%
 if __name__ == '__main__':
@@ -219,12 +243,13 @@ if __name__ == '__main__':
                    'filename': wsbComments,
                    'header': wsbCommHeaders}
 
-    print('starting posts')
-    runIngest(postDic)
-    print('starting comments')
-    runIngest(commentsDic)
+    #print('starting posts')
+    #runIngest(postDic)
+    #print('completed posts')
+    #print('starting comments')
+    #runIngest(commentsDic)
+    #print('completed comments')
 
-    '''
     # The jobs to send to the thread pool.
     jobs = [postDic, commentsDic]
     job_list = []
@@ -232,21 +257,21 @@ if __name__ == '__main__':
 
     # Multi process the data.
     with Pool(len(jobs)) as p:
-        print('start')
+        print('start', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
         job_list = p.map(runIngest, jobs)
         #print(job_list)
-        print('done')
+        print('done', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
     # %%
-    wsbPostDf = pd.DataFrame()
-    wsbCommentsDf = pd.DataFrame()
-    for job in job_list:
-        if (job['job'] == 'wsb_post_results'):
+    #wsbPostDf = pd.DataFrame()
+    #wsbCommentsDf = pd.DataFrame()
+    #for job in job_list:
+    #    if (job['job'] == 'wsb_post_results'):
             #print('wsb_post_results')
-            wsbPostDf = job['df']
-        else:
+    #        wsbPostDf = job['df']
+    #    else:
             #print('wsb_comments_results')
-            wsbCommentsDf = job['df']
-    '''
+    #        wsbCommentsDf = job['df']
+
 
     #print(wsbPostDf[['body_tickers', 'body']])
     #print(wsbPostDf[['title_tickers', 'title']])
