@@ -29,7 +29,7 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 # I set my CPU cores to limit the overhead on the system so I can use my computer while this processes.
 NUM_PROCESSES = 12 #multiprocessing.cpu_count()
-CHUNCK_SIZE = 100000
+CHUNCK_SIZE = 50000
 
 def cleanPostDf(df):
     # Rename the self text column to body
