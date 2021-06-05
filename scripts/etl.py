@@ -301,7 +301,7 @@ def runIngest(on):
         # df['title_tickers'] = df.title.swifter.apply(lambda x: getTickersByRe(x))
         print('title tickers ')
         with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
-            df['title_tickers'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+            df['title_tickers'] = list(tqdm.tqdm(pool.map(getTickersByRe, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
         df['title_tickers'] = df['title_tickers'].str.strip()
         df.title = df.title.str.lower()
