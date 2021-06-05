@@ -3,7 +3,7 @@ import pandas as pd
 
 CLIENT_ID = ''
 CLIENT_SECRET = ''
-USER_AGEN = ''
+USER_AGENT = ''
 
 # Pulls from the reddit API with PRAW and writes to the CSV.
 #TODO: add comment extraction.
