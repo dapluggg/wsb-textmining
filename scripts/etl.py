@@ -12,14 +12,24 @@ import emoji
 from textblob import TextBlob
 from time import gmtime, strftime
 
+# Multiprocessing.
+import swifter
+import concurrent.futures
+import multiprocessing
+import tqdm
+
 #NLTK IMPORTS
 import nltk
 from nltk.corpus import stopwords
-nltk.download('stopwords')
+#nltk.download('stopwords')
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-nltk.download('vader_lexicon')
+#nltk.download('vader_lexicon')
 
 # %%
+
+# I set my CPU cores to limit the overhead on the system so I can use my computer while this processes.
+NUM_PROCESSES = 12 #multiprocessing.cpu_count()
+CHUNCK_SIZE = 100000
 
 def cleanPostDf(df):
     # Rename the self text column to body
@@ -32,17 +42,41 @@ def cleanPostDf(df):
     df = df.dropna(subset=['body'])
     df = df[df['body'] != 'nan']
 
-    df.body = df.body.apply(lambda x: cleanData(x))
-    df.title = df.title.apply(lambda x: cleanData(x))
+    print("body")
+    #df.body = df.body.swifter.apply(lambda x: cleanData(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body'] = list(tqdm.tqdm(pool.map(cleanData, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
-    df.body = df.body.apply(lambda x: emoji.demojize(x))
-    df.title = df.title.apply(lambda x: emoji.demojize(x))
+    print("title")
+    #df.title = df.title.swifter.apply(lambda x: cleanData(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['title'] = list(tqdm.tqdm(pool.map(cleanData, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
-    df['body_filtered'] = df.body.apply(lambda x: stopWordFilter(x))
-    df['title_filtered'] = df.title.apply(lambda x: stopWordFilter(x))
+    print('demojize body')
+    #df.body = df.body.swifter.apply(lambda x: emoji.demojize(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body'] = list(tqdm.tqdm(pool.map(emoji.demojize, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print('demojize title')
+    #df.title = df.title.swifter.apply(lambda x: emoji.demojize(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['title'] = list(tqdm.tqdm(pool.map(emoji.demojize, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print("body filtered")
+    #df['body_filtered'] = df.body.swifter.apply(lambda x: stopWordFilter(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body_filtered'] = list(tqdm.tqdm(pool.map(stopWordFilter, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print('title filtered')
+    #df['title_filtered'] = df.title.swifter.apply(lambda x: stopWordFilter(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['title_filtered'] = list(tqdm.tqdm(pool.map(stopWordFilter, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     # Convert epoch
-    df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
+    print("epoch")
+    #df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['created_utc_datetime'] = list(tqdm.tqdm(pool.map(datetime.date.fromtimestamp, df['created_utc'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     df['doc_type'] = 'wsb_post'
 
@@ -55,22 +89,47 @@ def cleanCommentsDf(df):
     df = df.dropna(subset=['body'])
     df = df[df['body'] != 'nan']
 
-    df.body = df.body.apply(lambda x: cleanData(x))
-    df.body = df.body.apply(lambda x: emoji.demojize(x))
+    print("body")
+    #df.body = df.body.swifter.apply(lambda x: cleanData(x))
+    #df.body = df.body.swifter.apply(lambda x: emoji.demojize(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body'] = list(tqdm.tqdm(pool.map(cleanData, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
-    df['body_filtered'] = df.body.apply(lambda x: stopWordFilter(x))
+    print('demojize')
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body'] = list(tqdm.tqdm(pool.map(emoji.demojize, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print("body_filtered")
+    #df['body_filtered'] = df.body.swifter.apply(lambda x: stopWordFilter(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body_filtered'] = list(tqdm.tqdm(pool.map(stopWordFilter, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     # Convert epoch
-    df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
+    print("epoch")
+    #df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['created_utc_datetime'] = list(tqdm.tqdm(pool.map(datetime.date.fromtimestamp, df['created_utc'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     # Remove top-level number from ids
-    df.parent_id = df.parent_id.apply(lambda x: re.sub(r't\d+\_', '', x))
-    df.link_id = df.link_id.apply(lambda x: re.sub(r't\d+\_', '', x))
+    print("clean id")
+    #df.parent_id = df.parent_id.swifter.apply(lambda x: re.sub(r't\d+\_', '', x))
+    #df.link_id = df.link_id.swifter.apply(lambda x: re.sub(r't\d+\_', '', x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['parent_id'] = list(tqdm.tqdm(pool.map(cleanIds, df['parent_id'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print("clean link id")
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['link_id'] = list(tqdm.tqdm(pool.map(cleanIds, df['link_id'], chunksize=CHUNCK_SIZE), total=df.shape[0]))  # With a progressbar
 
     df['doc_type'] = 'wsb_comment'
 
     return df
 
+# For the WSB IDs.
+def cleanIds(x):
+    return re.sub(r't\d+\_', '', x)
+
+# Clean the WSB post data.
 def cleanData(x):
     text = x
     text = re.sub('@[^\s]+', ' ', text)
@@ -81,6 +140,36 @@ def cleanData(x):
     text = re.sub(r'\d+', ' ', text)  # Remove numbers
     text = re.sub(r'[\s\t\n\r]+', ' ', text, flags=re.I)
     return text
+
+def cleanBodyFields(df):
+    df['body'] = df['body'].str.lower()
+    df['body'] = df['body'].str.replace('[\$\(\)]', '', regex=True)
+    return df['body']
+
+def cleanFilteredFields(df):
+    df['body_filtered'] = df['body_filtered'].str.lower()
+    df['body_filtered'] = df['body_filtered'].str.replace('[\$\(\)]', '', regex=True)
+    return df['body_filtered']
+
+def cleanTickersFields(df):
+    df['body_tickers'] = df['body_tickers'].str.strip()
+    df['body_tickers'] = df['body_tickers'].str.replace('[\$\(\)]', '', regex=True)
+    return df['body_tickers']
+
+def cleanTitleFields(df):
+    df['title'] = df['title'].str.lower()
+    df['title'] = df['title'].str.replace('[\$\(\)]', '', regex=True)
+    return df['title']
+
+def cleanTitleFilteredFields(df):
+    df['title_filtered'] = df['title_filtered'].str.lower()
+    df['title_filtered'] = df['title_filtered'].str.replace('[\$\(\)]', '', regex=True)
+    return df['title_filtered']
+
+def cleanTitleTickersFields(df):
+    df['title_tickers'] = df['title_tickers'].str.strip()
+    df['title_tickers'] = df['title_tickers'].str.replace('[\$\(\)]', '', regex=True)
+    return df['title_tickers']
 
 # Scrub the text of english stopwords from NLTK.
 def stopWordFilter(txt):
@@ -102,6 +191,7 @@ def getTickersByRe(body):
         return note_search.group()
     return ""
 
+# Extract the stock tickers based on company name.
 def getTickersByName(text):
     companyNames = {'gamestop': 'GME',
                     'black berry': 'BB',
@@ -130,7 +220,6 @@ def getStockData(on):
     gmeDf.columns = ["date", "rsi", "open", "high", "low", "close", "volume", "adjusted"]
     gmeDf['ticker'] = 'GME'
     gmeDf = gmeDf.sort_values(by=['date'])
-    #print(gmeDf)
     return gmeDf
 
 # Vadar Sentiment
@@ -144,11 +233,20 @@ def vadar_sentiment(text):
         return "positive"
     return "neutral"
 
+# TB Polarity value.
+def tb_polarity(text):
+    return TextBlob(text).sentiment.polarity
+
+# TextBlob subjectivity value.
+def tb_subjectivity(text):
+    return TextBlob(text).sentiment.subjectivity
+
+# The pipe. ###################################
 def runIngest(on):
     resultsFileLoc = on['folderLoc'] + '\\processed\\' + on['job']
     fileLoc = on['folderLoc'] + '\\rawdata\\' + on['filename']
     header = on['header']
-    df = pd.read_csv(fileLoc, usecols=header)#, nrows=200000)
+    df = pd.read_csv(fileLoc, usecols=header)#, nrows=10000)
 
     # Clean the text data.
     if (on['job'] == 'wsb_post_results'):
@@ -157,20 +255,37 @@ def runIngest(on):
         df = cleanCommentsDf(df)
 
     # Polarity subjectivity
-    df['body_polarity'] = df.body.apply(lambda x: TextBlob(x).sentiment.polarity)
-    df['body_subjectivity'] = df.body.apply(lambda x: TextBlob(x).sentiment.subjectivity)
-    df['body_vadar_sentiment'] = df.body.apply(lambda x: vadar_sentiment(x))
+    print("Polarity")
+    #df['body_polarity'] = df.body.swifter.apply(lambda x: TextBlob(x).sentiment.polarity)
+    #df['body_subjectivity'] = df.body.swifter.apply(lambda x: TextBlob(x).sentiment.subjectivity)
+    #df['body_subjectivity'] = df.body.swifter.apply(lambda x: vadar_sentiment(x))
+
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body_polarity'] = list(tqdm.tqdm(pool.map(tb_polarity, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))  # With a progressbar
+
+    print("subjectivity")
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body_subjectivity'] = list(tqdm.tqdm(pool.map(tb_subjectivity, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print('vader sentiment')
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body_vadar_sentiment'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     # Find stock tickers
-    df['body_tickers'] = df.body.apply(lambda x: getTickersByRe(x))
-    df['body_tickers'] = df['body_tickers'].str.strip()
+    print("extract stock tickers")
+    #df['body_tickers'] = df.body.swifter.apply(lambda x: getTickersByRe(x))
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['body_tickers'] = list(tqdm.tqdm(pool.map(getTickersByRe, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
+    print("data touch ups.")
     df.body = df.body.str.lower()
     df.body = df.body.str.replace('[\$\(\)]', '', regex=True)
     df.body_filtered = df.body_filtered.str.lower()
     df.body_filtered = df.body_filtered.str.replace('[\$\(\)]', '', regex=True)
+    df.body_tickers = df.body_tickers.str.strip()
     df.body_tickers = df.body_tickers.str.replace('[\$\(\)]', '', regex=True)
 
+    print("merging stock data.")
     # Merge stock data for both GME
     gmeDf = getStockData(on)
     df['created_utc_datetime'] = df['created_utc_datetime'].astype(str)
@@ -178,8 +293,16 @@ def runIngest(on):
     df = pd.merge(df, gmeDf, left_on=['created_utc_datetime', 'body_tickers'], right_on=['date', 'ticker'], how='left')
 
     if (on['job'] == 'wsb_post_results'):
-        df['title_vadar_sentiment'] = df.body.apply(lambda x: vadar_sentiment(x))
-        df['title_tickers'] = df.title.apply(lambda x: getTickersByRe(x))
+        #df['title_vadar_sentiment'] = df.title.swifter.apply(lambda x: vadar_sentiment(x))
+        print('title vader')
+        with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+            df['title_vadar_sentiment'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+        # df['title_tickers'] = df.title.swifter.apply(lambda x: getTickersByRe(x))
+        print('title tickers ')
+        with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+            df['title_tickers'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
         df['title_tickers'] = df['title_tickers'].str.strip()
         df.title = df.title.str.lower()
         df.title = df.title.str.replace('[\$\(\)]', '', regex=True)
@@ -196,13 +319,10 @@ def runIngest(on):
 
     df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
     df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]] = df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]].fillna(value=0) 
-    df = df.sort_values(by=['created_utc_datetime'])
+    #df = df.sort_values(by=['created_utc_datetime'])
 
-    # Write results to file.
+    print ("putting to disk.")
     putToDisk(resultsFileLoc, df)
-
-    #print(df[['body_vadar_sentiment','title_vadar_sentiment']])
-    #print(df['title_filtered'])
 
     # return back to main thread
     return {'job': on['job'], 'df': df}
@@ -243,24 +363,24 @@ if __name__ == '__main__':
                    'filename': wsbComments,
                    'header': wsbCommHeaders}
 
-    #print('starting posts')
-    #runIngest(postDic)
-    #print('completed posts')
-    #print('starting comments')
-    #runIngest(commentsDic)
-    #print('completed comments')
+    print('starting posts')
+    runIngest(postDic)
+    print('completed posts')
+    print('starting comments')
+    runIngest(commentsDic)
+    print('completed comments')
 
     # The jobs to send to the thread pool.
-    jobs = [postDic, commentsDic]
-    job_list = []
-    from multiprocessing import Pool
+    #jobs = [commentsDic]
+    #job_list = []
+    #from multiprocessing import Pool
 
     # Multi process the data.
-    with Pool(len(jobs)) as p:
-        print('start', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
-        job_list = p.map(runIngest, jobs)
-        #print(job_list)
-        print('done', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
+    #with Pool(len(jobs)) as p:
+    #    print('start', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
+    #    job_list = p.map(runIngest, jobs)
+    #    #print(job_list)
+    #    print('done', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
     # %%
     #wsbPostDf = pd.DataFrame()
     #wsbCommentsDf = pd.DataFrame()
@@ -271,30 +391,3 @@ if __name__ == '__main__':
     #    else:
             #print('wsb_comments_results')
     #        wsbCommentsDf = job['df']
-
-
-    #print(wsbPostDf[['body_tickers', 'body']])
-    #print(wsbPostDf[['title_tickers', 'title']])
-    #print(wsbCommentsDf[['body_tickers', 'body']])
-    # %%
-    # Merge the comments with the original post.  Let the comments drive the
-    # number of records.
-
-    # %%
-    #d = wsbPostDf[wsbPostDf['body_tickers'].apply(len) > 0]
-    #dd = pdsql.sqldf('select body_tickers as stock, count(body_tickers) as cnt from d group by body_tickers order by cnt desc')
-    # print(dd)
-
-    #ax = sns.barplot(x="stock", y="cnt", data=dd[:20])
-    #ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-    #ax.set_xlabel('Equity Symbol')
-    #ax.set_ylabel('Frequency')
-    #ax.set_title('Top 20 Most Found Equity')
-    #plt.show()
-    # %%
-    #dp = wsbPostDf[['author', 'id', 'title']]
-    #dc = wsbCommentsDf[['author', 'id', 'parent_id', 'link_id']]
-    #print(dp.head(5))
-    #print(dc.head(50))
-    #ddp = pdsql.sqldf('select author, count(author) as auth_cnt from d group by author order by auth_cnt desc')
-    #print(ddp)
