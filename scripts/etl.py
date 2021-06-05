@@ -43,38 +43,31 @@ def cleanPostDf(df):
     df = df[df['body'] != 'nan']
 
     print("body")
-    #df.body = df.body.swifter.apply(lambda x: cleanData(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body'] = list(tqdm.tqdm(pool.map(cleanData, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     print("title")
-    #df.title = df.title.swifter.apply(lambda x: cleanData(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['title'] = list(tqdm.tqdm(pool.map(cleanData, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     print('demojize body')
-    #df.body = df.body.swifter.apply(lambda x: emoji.demojize(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body'] = list(tqdm.tqdm(pool.map(emoji.demojize, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     print('demojize title')
-    #df.title = df.title.swifter.apply(lambda x: emoji.demojize(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['title'] = list(tqdm.tqdm(pool.map(emoji.demojize, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     print("body filtered")
-    #df['body_filtered'] = df.body.swifter.apply(lambda x: stopWordFilter(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body_filtered'] = list(tqdm.tqdm(pool.map(stopWordFilter, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     print('title filtered')
-    #df['title_filtered'] = df.title.swifter.apply(lambda x: stopWordFilter(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['title_filtered'] = list(tqdm.tqdm(pool.map(stopWordFilter, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     # Convert epoch
     print("epoch")
-    #df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['created_utc_datetime'] = list(tqdm.tqdm(pool.map(datetime.date.fromtimestamp, df['created_utc'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
@@ -90,8 +83,6 @@ def cleanCommentsDf(df):
     df = df[df['body'] != 'nan']
 
     print("body")
-    #df.body = df.body.swifter.apply(lambda x: cleanData(x))
-    #df.body = df.body.swifter.apply(lambda x: emoji.demojize(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body'] = list(tqdm.tqdm(pool.map(cleanData, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
@@ -99,21 +90,17 @@ def cleanCommentsDf(df):
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body'] = list(tqdm.tqdm(pool.map(emoji.demojize, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
-    print("body_filtered")
-    #df['body_filtered'] = df.body.swifter.apply(lambda x: stopWordFilter(x))
+    print("body filtered")
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body_filtered'] = list(tqdm.tqdm(pool.map(stopWordFilter, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     # Convert epoch
     print("epoch")
-    #df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['created_utc_datetime'] = list(tqdm.tqdm(pool.map(datetime.date.fromtimestamp, df['created_utc'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     # Remove top-level number from ids
     print("clean id")
-    #df.parent_id = df.parent_id.swifter.apply(lambda x: re.sub(r't\d+\_', '', x))
-    #df.link_id = df.link_id.swifter.apply(lambda x: re.sub(r't\d+\_', '', x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['parent_id'] = list(tqdm.tqdm(pool.map(cleanIds, df['parent_id'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
@@ -136,7 +123,7 @@ def cleanData(x):
     text = re.sub(r"http\S+", " ", text)
     text = re.sub(r'\s+[a-zA-Z]\s+', ' ', text)  # remove single chars
     text = re.sub(r'[\~\`\!\@\#\%\^\&\*\+\=\{\}\[\]\|\\\:\;\"\<\>\?\,\.\/]',' ',text) # remove punctuation
-    text = re.sub('\w*\d+\w*', ' ', text) # remove words containing numbers
+    #text = re.sub('\w*\d+\w*', ' ', text) # remove words containing numbers
     text = re.sub(r'\d+', ' ', text)  # Remove numbers
     text = re.sub(r'[\s\t\n\r]+', ' ', text, flags=re.I)
     return text
@@ -256,10 +243,6 @@ def runIngest(on):
 
     # Polarity subjectivity
     print("Polarity")
-    #df['body_polarity'] = df.body.swifter.apply(lambda x: TextBlob(x).sentiment.polarity)
-    #df['body_subjectivity'] = df.body.swifter.apply(lambda x: TextBlob(x).sentiment.subjectivity)
-    #df['body_subjectivity'] = df.body.swifter.apply(lambda x: vadar_sentiment(x))
-
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body_polarity'] = list(tqdm.tqdm(pool.map(tb_polarity, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))  # With a progressbar
 
@@ -273,7 +256,6 @@ def runIngest(on):
 
     # Find stock tickers
     print("extract stock tickers")
-    #df['body_tickers'] = df.body.swifter.apply(lambda x: getTickersByRe(x))
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body_tickers'] = list(tqdm.tqdm(pool.map(getTickersByRe, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
@@ -293,21 +275,19 @@ def runIngest(on):
     df = pd.merge(df, gmeDf, left_on=['created_utc_datetime', 'body_tickers'], right_on=['date', 'ticker'], how='left')
 
     if (on['job'] == 'wsb_post_results'):
-        #df['title_vadar_sentiment'] = df.title.swifter.apply(lambda x: vadar_sentiment(x))
-        print('title vader')
+        print('title vadar')
         with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
             df['title_vadar_sentiment'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
-        # df['title_tickers'] = df.title.swifter.apply(lambda x: getTickersByRe(x))
         print('title tickers ')
         with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
             df['title_tickers'] = list(tqdm.tqdm(pool.map(getTickersByRe, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
-        df['title_tickers'] = df['title_tickers'].str.strip()
         df.title = df.title.str.lower()
         df.title = df.title.str.replace('[\$\(\)]', '', regex=True)
         df.title_filtered = df.title_filtered.str.lower()
         df.title_filtered = df.title_filtered.str.replace('[\$\(\)]', '', regex=True)
+        df.title_tickers = df.title_tickers.str.strip()
         df.title_tickers = df.title_tickers.str.replace('[\$\(\)]', '', regex=True)
 
         titleDf = df[df['title_tickers'] == 'GME']
@@ -318,8 +298,7 @@ def runIngest(on):
         df = pd.concat([df, titleDf])  # Put the removed back with stock data.
 
     df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
-    df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]] = df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]].fillna(value=0) 
-    #df = df.sort_values(by=['created_utc_datetime'])
+    df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]] = df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]].fillna(value=0)
 
     print ("putting to disk.")
     putToDisk(resultsFileLoc, df)
@@ -381,13 +360,3 @@ if __name__ == '__main__':
     #    job_list = p.map(runIngest, jobs)
     #    #print(job_list)
     #    print('done', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
-    # %%
-    #wsbPostDf = pd.DataFrame()
-    #wsbCommentsDf = pd.DataFrame()
-    #for job in job_list:
-    #    if (job['job'] == 'wsb_post_results'):
-            #print('wsb_post_results')
-    #        wsbPostDf = job['df']
-    #    else:
-            #print('wsb_comments_results')
-    #        wsbCommentsDf = job['df']
