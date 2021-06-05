@@ -20,7 +20,7 @@ if __name__ == '__main__':
     for s in subreddit.new(limit=256):
         if (s.is_video == False):
             d = {'author': s.author,'author_premium':s.author_premium,'created_utc':s.created_utc,'domain':s.domain,
-                 'id':s.id,'num_comments':s.num_comments,'body':s.selftext,'subreddit':s.subreddit,'subreddit_id':s.subreddit,
+                 'id':s.id,'num_comments':s.num_comments,'selftext':s.selftext,'subreddit':s.subreddit,'subreddit_id':s.subreddit,
                  'title':s.title,'upvote_ratio':s.upvote_ratio}
             posts.append(d)
 
