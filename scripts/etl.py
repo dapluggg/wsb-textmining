@@ -10,7 +10,8 @@ import re
 import datetime
 import emoji
 from textblob import TextBlob
-from time import gmtime, strftime
+import glob as g
+import time
 
 # Multiprocessing.
 import swifter
@@ -231,7 +232,7 @@ def tb_subjectivity(text):
 # The pipe. ###################################
 def runIngest(on):
     resultsFileLoc = on['folderLoc'] + '\\processed\\' + on['job']
-    fileLoc = on['folderLoc'] + '\\rawdata\\' + on['filename']
+    fileLoc = on['filename']# + '\\rawdata\\' + on['filename']
     header = on['header']
     df = pd.read_csv(fileLoc, usecols=header)#, nrows=10000)
 
@@ -308,6 +309,7 @@ def runIngest(on):
 
 # Puts the posts and comments to both csv and parque.
 def putToDisk(resultsFileLoc, df):
+    currentTime = time.strftime('%Y%m%d%H%M%S', time.localtime())
     size = df.shape[0]
     step = 250000
     end = step
@@ -315,8 +317,8 @@ def putToDisk(resultsFileLoc, df):
     for x in range(0, size, step):
         print(x, end)
         d = df[x:end]
-        d.to_csv(resultsFileLoc + '_' + str(count) + '.csv', index=False)
-        d.to_parquet(resultsFileLoc + '_' + str(count) + '.gzip', compression='gzip')
+        d.to_csv(resultsFileLoc + '_' + currentTime + '_' + str(count) + '.csv', index=False)
+        d.to_parquet(resultsFileLoc + '_' + currentTime + '_' + str(count) + '.gzip', compression='gzip')
         end += step
         count += 1
 
@@ -324,39 +326,36 @@ def putToDisk(resultsFileLoc, df):
 if __name__ == '__main__':
 
     folderLoc = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining'
-    wsbPosts = 'wallstreetbets_posts.csv'
-    wsbComments = 'wallstreetbets_comments.csv'
+    wsbPosts = 'wallstreetbets_posts*.csv'
+    wsbComments = 'wallstreetbets_comments*.csv'
 
     wsbPostHeaders = ['id', 'author', 'author_premium', 'created_utc', 'domain', 'title', 'selftext', 'subreddit',
                       'subreddit_id', 'num_comments', 'upvote_ratio']
     wsbCommHeaders = ['id', 'parent_id', 'link_id', 'author', 'created_utc', 'body', 'subreddit', 'subreddit_id']
 
-    # Job definitions
-    postDic = {'job': 'wsb_post_results',
-               'folderLoc': folderLoc,
-               'filename': wsbPosts,
-               'header': wsbPostHeaders}
-
-    commentsDic = {'job': 'wsb_comments_results',
+    files = g.glob(folderLoc + '\\rawdata\\live\\' + wsbPosts, recursive=True)
+    print(files)
+    for f in files:
+        # Job definitions
+        postDic = {'job': 'wsb_post_results',
                    'folderLoc': folderLoc,
-                   'filename': wsbComments,
-                   'header': wsbCommHeaders}
+                   'filename': f,
+                   'header': wsbPostHeaders}
+        print('starting posts')
+        print(postDic)
+        runIngest(postDic)
+        print('completed posts')
 
-    print('starting posts')
-    runIngest(postDic)
-    print('completed posts')
-    print('starting comments')
-    runIngest(commentsDic)
-    print('completed comments')
+    files = g.glob(folderLoc + '\\rawdata\\live\\' + wsbComments, recursive=True)
+    print(files)
+    for f in files:
+        # Job definitions
+        commentsDic = {'job': 'wsb_comments_results',
+                       'folderLoc': folderLoc,
+                       'filename': f,
+                       'header': wsbCommHeaders}
 
-    # The jobs to send to the thread pool.
-    #jobs = [commentsDic]
-    #job_list = []
-    #from multiprocessing import Pool
 
-    # Multi process the data.
-    #with Pool(len(jobs)) as p:
-    #    print('start', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
-    #    job_list = p.map(runIngest, jobs)
-    #    #print(job_list)
-    #    print('done', strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime()))
+        print('starting comments')
+        runIngest(commentsDic)
+        print('completed comments')

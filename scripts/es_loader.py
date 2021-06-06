@@ -41,7 +41,7 @@ def getData (filePath):
     return glDf
 
 def main(on):
-    baseIndexName = 'wsb_post'
+    baseIndexName = 'wsb_post_live'
     print("Processing file, ", on)
     df = getData(on)
 
@@ -60,6 +60,5 @@ if __name__ == '__main__':
     with Pool(len(files)) as p:
         print(p.map(main, files))
 
-    #main()
     logMessage("Batch process done.")
     os._exit(0)

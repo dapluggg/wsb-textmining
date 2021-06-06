@@ -7,9 +7,7 @@ import glob as g
 import collections as c
 
 # SMOTE for oversampling.
-from imblearn.over_sampling import SMOTE, SVMSMOTE
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.pipeline import Pipeline
+from imblearn.over_sampling import SVMSMOTE
 
 # Sklearn
 from sklearn.model_selection import ShuffleSplit
