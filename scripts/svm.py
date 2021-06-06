@@ -7,7 +7,7 @@ import glob as g
 import collections as c
 
 # SMOTE for oversampling.
-from imblearn.over_sampling import SVMSMOTE
+from imblearn.over_sampling import SVMSMOTE, SMOTE
 
 # Sklearn
 from sklearn.model_selection import ShuffleSplit
@@ -122,7 +122,7 @@ def kFoldCrossValidation_updown(name, df, folds, ml, size=0.33, rs=None):
         # strategy = {0: 775, 1: 795}
         print("SMOTE+++++")
         strategy='all'
-        over = SVMSMOTE(sampling_strategy=strategy)
+        over = SMOTE(sampling_strategy=strategy)
         train_o_smote, train_lable_smote = over.fit_resample(train_o, train_lable)
         print(train_o_smote.shape)
         print(train_lable_smote.shape)
@@ -163,15 +163,15 @@ def kFoldCrossValidation_updown(name, df, folds, ml, size=0.33, rs=None):
 # Set RSI momentum flags.
 def setRsiSignal(row):
     if row['rsi'] <= 30:
-        val = 'OVER_SOLD'
+        val = 0 # 'OVER_SOLD'
     elif row['rsi'] >= 70:
-        val = 'OVER_BOUGHT'
-    elif row['rsi'] <= 48:
-        val = 'BEARISH_MOMENTUM'
-    elif row['rsi'] >= 52:
-        val = 'BULLISH_MOMENTUM'
+        val = 4 # 'OVER_BOUGHT'
+    elif (row['rsi'] < 50 and row['rsi'] > 30):
+        val = 1 # 'BEARISH_MOMENTUM'
+    elif (row['rsi'] >= 50 and row['rsi'] < 70):
+        val = 3 # 'BULLISH_MOMENTUM'
     else:
-        val = 'NEUTRAL_MOMENTUM'
+        val = 2 #'NEUTRAL_MOMENTUM'
     return val
 # %%
 moderators = ['OPINION_IS_UNPOPULAR','CHAINSAW_VASECTOMY','WallStreetBot','bawse1','zjz','VisualMod','premier_',
@@ -227,16 +227,21 @@ plt.figure(figsize=(10, 10))
 ax = sns.barplot(x="rsi_signal", y="frequency", hue='up_down', data=dd)
 plt.show()
 
+
+
+
+print ('===== UP DOWN PREDICTIONS =====')
+
 # Extract from the datafame the information needed to build the
 # count vectorizer.
 rArray = postDf['body'].to_numpy()
-sentArray = postDf['up_down'].to_numpy()
+lArray = postDf['up_down'].to_numpy()
 
 # Vectorize with the sentiment label.
-print("TFIDF LINEAR SVM >- Cross Validation Results.")
-ud_tfidf_vector = buildTFIDFVectorizedDf(rArray, sentArray)
+print("TFIDF SVM >- Cross Validation Results.")
+ud_tfidf_vector = buildTFIDFVectorizedDf(rArray, lArray)
 print(ud_tfidf_vector)
-scores = kFoldCrossValidation_updown("SVM_TFIDF", ud_tfidf_vector, 1, SVC(kernel='linear'))
+scores = kFoldCrossValidation_updown("SVM_TFIDF", ud_tfidf_vector, 1, SVC())
 print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
 
 # Get the best model off f1 score.
@@ -244,10 +249,39 @@ min_pr_diff = scores['f1'].max()
 m = scores[scores['f1'] == min_pr_diff].reset_index()
 print(m[['fold','f1','precision','recall','score','pr_diff']])
 
-print("TFIDF LINEAR SVM >- Cross Validation Results.")
-ud_count_vector = buildCountVectorizedDf(rArray, sentArray)
+print("COUNT SVM >- Cross Validation Results.")
+ud_count_vector = buildCountVectorizedDf(rArray, lArray)
 print(ud_count_vector)
-scores = kFoldCrossValidation_updown("SVM_COUNT", ud_count_vector, 1, SVC(kernel='linear'))
+scores = kFoldCrossValidation_updown("SVM_COUNT", ud_count_vector, 1, SVC())
+print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
+
+# Get the best model off f1 score.
+min_pr_diff = scores['f1'].max()
+m = scores[scores['f1'] == min_pr_diff].reset_index()
+print(m[['fold','f1','precision','recall','score','pr_diff']])
+
+print ('===== RSI PREDICTIONS =====')
+
+# refresh labels.
+rArray = postDf['body'].to_numpy()
+lArray = postDf['rsi_signal'].to_numpy()
+
+# Vectorize with the sentiment label.
+print("TFIDF SVM >- Cross Validation Results.")
+ud_tfidf_vector = buildTFIDFVectorizedDf(rArray, lArray)
+print(ud_tfidf_vector)
+scores = kFoldCrossValidation_updown("SVM_TFIDF", ud_tfidf_vector, 1, SVC())
+print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
+
+# Get the best model off f1 score.
+min_pr_diff = scores['f1'].max()
+m = scores[scores['f1'] == min_pr_diff].reset_index()
+print(m[['fold','f1','precision','recall','score','pr_diff']])
+
+print("COUNT SVM >- Cross Validation Results.")
+ud_count_vector = buildCountVectorizedDf(rArray, lArray)
+print(ud_count_vector)
+scores = kFoldCrossValidation_updown("SVM_COUNT", ud_count_vector, 1, SVC())
 print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
 
 # Get the best model off f1 score.
