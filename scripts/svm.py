@@ -3,6 +3,13 @@ import pandasql as pdsql
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import glob as g
+import collections as c
+
+# SMOTE for oversampling.
+from imblearn.over_sampling import SMOTE, SVMSMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.pipeline import Pipeline
 
 # Sklearn
 from sklearn.model_selection import ShuffleSplit
@@ -84,7 +91,7 @@ def buildVectorizedDf(content, labels, vectorizer):
 
 # K-Fold cross validation.
 # job name, data frame, number of folds, sklearn ml, test size, random state.
-def kFoldCrossValidation(name, df, folds, ml, size=0.33, rs=None):
+def kFoldCrossValidation_updown(name, df, folds, ml, size=0.33, rs=None):
     # models = []
     count = 1  # Count the iterations
     scores = pd.DataFrame()  # all scores added together for average.
@@ -95,16 +102,39 @@ def kFoldCrossValidation(name, df, folds, ml, size=0.33, rs=None):
         # print(train_idx, test_idx)
 
         train_o = df.iloc[train_idx]  # Get train by index.
-        # print(train_o.shape)
+        train_lable = train_o['LABEL']  # Seperate the labels
+        train_o = train_o.drop(columns=['LABEL'])
+        print(train_o.shape)
+        print(train_lable.shape)
+
 
         test_o = df.iloc[test_idx]  # get test by index.
-        # print(test_o.shape)
-
-        train_lable = train_o['LABEL']  # Seperate the labels
-        train_reviews = train_o.drop(columns=['LABEL'])  # Reviews text
-
         test_lable = test_o['LABEL']  # Seperate the labels
-        test_reviews = test_o.drop(columns=['LABEL'])  # Reviews text
+        test_reviews = test_o.drop(columns=['LABEL'])  # post text
+        print(test_o.shape)
+        print(test_lable.shape)
+        print(test_reviews.shape)
+
+        counter = c.Counter(train_lable)
+        print("Original sample counts", counter)
+
+        # SMOTE
+        # Using SMOTE to oversample the minority and under sample the majority.
+        # Original sample from data:  0:1867, 1:260
+        # strategy = {0: 775, 1: 795}
+        print("SMOTE+++++")
+        strategy='all'
+        over = SVMSMOTE(sampling_strategy=strategy)
+        train_o_smote, train_lable_smote = over.fit_resample(train_o, train_lable)
+        print(train_o_smote.shape)
+        print(train_lable_smote.shape)
+
+        # Validate the change by SMOTE.
+        counter = c.Counter(train_lable_smote)
+        print("Oversampled counts", counter)
+
+        train_reviews = train_o_smote  # post text
+        train_lable = train_lable_smote  # labels
 
         # Fit to the passed model.
         ml.fit(train_reviews, train_lable)
@@ -152,22 +182,36 @@ moderators = ['OPINION_IS_UNPOPULAR','CHAINSAW_VASECTOMY','WallStreetBot','bawse
               'VacationLover1','FannyPackPhantom','CallsOnAlcoholism','Grumpy-james','GoBeaversOSU','WilliamNyeTho',
               'richtofin115','umbrellacorpbailout','Darkbyte','Pusherman_','teddy_riesling','TheIceCreamMansBro2',
               'Dan_inKuwait','DisabledSexRobot','onelot','SignedUpWhilePooping','Swedish_Chef_Bork_x3','GasolinePizza',
-              'cafenegroporfa','Epidemilk','Memetron9000',]
+              'cafenegroporfa','Epidemilk','Memetron9000']
+cols = ['author','author_premium','created_utc','domain','id','num_comments','body','subreddit','subreddit_id','title',
+        'upvote_ratio','body_filtered','title_filtered','created_utc_datetime','doc_type','body_polarity',
+        'body_subjectivity','body_vadar_sentiment','body_tickers','date','rsi','open','high','low','close','volume',
+        'adjusted','ticker','title_vadar_sentiment','title_tickers']
 
-postPath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_post_results_1.csv'
-postDf = getData(postPath, 90000000)
-postDf = postDf[postDf['body_tickers'] == 'GME']
-postDf['close'] = postDf['close'].astype(float)
-postDf['open'] = postDf['open'].astype(float)
-postDf = postDf[(postDf.close > 0) & (postDf.open > 0)]
-postDf['gain'] = postDf.close - postDf.open
-postDf['up_down'] = np.where(postDf.gain > 0, 'UP', 'DOWN')
-postDf['rsi_signal'] = postDf.apply(setRsiSignal, axis=1)
-postDf['created_utc_date'] = pd.to_datetime(postDf['created_utc_datetime'], format='%Y-%m-%d')
-postDf = postDf.sort_values(by=['created_utc_date'])
-# Remove moderators
-postDf = postDf[~postDf.author.isin(moderators)]
+#postPath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_post_results_1.csv'
+
+#filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_post_results_*.csv'
+filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\SVM_Train\\wsb_*.csv'
+files = g.glob(filePath, recursive=True)
+print(files)
+postDf = pd.DataFrame()
+for f in files:
+    print('processing file:', f)
+    df = getData(f, 90000000)
+    df = df[df['body_tickers'] == 'GME']
+    df['close'] = df['close'].astype(float)
+    df['open'] = df['open'].astype(float)
+    df = df[(df.close > 0) & (df.open > 0)]
+    df['gain'] = df.close - df.open
+    df['up_down'] = np.where(df.gain > 0, 1, 0)  #UP = 1 DOWN = 0
+    df['rsi_signal'] = df.apply(setRsiSignal, axis=1)
+    df['created_utc_date'] = pd.to_datetime(df['created_utc_datetime'], format='%Y-%m-%d')
+    df = df.sort_values(by=['created_utc_date'])
+    #df = df[(df.created_utc_date >= '2021-01-05 00:00:00') & (df.created_utc_date <= '2021-01-22 00:00:00') ]
+    df = df[~df.author.isin(moderators)]  # Remove moderators
+    postDf = postDf.append(df, ignore_index = True)
 print(postDf[['created_utc_date','author','gain','up_down','rsi_signal']])
+print(postDf.shape)
 
 # Sentiment distribution
 dd = pdsql.sqldf('select up_down, count(up_down) up_down_frequency from postDf group by up_down order by up_down_frequency desc')
@@ -194,7 +238,18 @@ sentArray = postDf['up_down'].to_numpy()
 print("TFIDF LINEAR SVM >- Cross Validation Results.")
 ud_tfidf_vector = buildTFIDFVectorizedDf(rArray, sentArray)
 print(ud_tfidf_vector)
-scores = kFoldCrossValidation("SVM_TFIDF", ud_tfidf_vector, 5, SVC(kernel='linear'))
+scores = kFoldCrossValidation_updown("SVM_TFIDF", ud_tfidf_vector, 1, SVC(kernel='linear'))
+print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
+
+# Get the best model off f1 score.
+min_pr_diff = scores['f1'].max()
+m = scores[scores['f1'] == min_pr_diff].reset_index()
+print(m[['fold','f1','precision','recall','score','pr_diff']])
+
+print("TFIDF LINEAR SVM >- Cross Validation Results.")
+ud_count_vector = buildCountVectorizedDf(rArray, sentArray)
+print(ud_count_vector)
+scores = kFoldCrossValidation_updown("SVM_COUNT", ud_count_vector, 1, SVC(kernel='linear'))
 print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
 
 # Get the best model off f1 score.
