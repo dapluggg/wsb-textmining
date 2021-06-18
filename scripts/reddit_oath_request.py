@@ -9,7 +9,7 @@ USER_AGENT = ''
 
 def getComments(folderLoc, wsbComments, subreddit):
     comments = []
-    for s in subreddit.comments(limit=256):
+    for s in subreddit.comments(limit=10000):
         #if (s.is_video == False):
             d = {'author': s.author, 'created_utc': s.created_utc, 'id': s.id, 'body': s.body, 'subreddit': s.subreddit,
                  'subreddit_id': s.subreddit, 'parent_id':s.parent_id, 'link_id':s.link_id}
@@ -23,9 +23,9 @@ def getComments(folderLoc, wsbComments, subreddit):
 def getPosts(folderLoc, wsbPosts, subreddit):
     posts = []
     # for s in subreddit.top(limit=256):
-    for s in subreddit.top("all"):
+    for s in subreddit.new(limit=1000):
         if (s.is_video == False):
-            d = {'author': s.author, 'author_premium': s.author_premium, 'created_utc': s.created_utc,
+            d = {'author': s.author, 'author_premium': '', 'created_utc': s.created_utc,
                  'domain': s.domain,
                  'id': s.id, 'num_comments': s.num_comments, 'selftext': s.selftext, 'subreddit': s.subreddit,
                  'subreddit_id': s.subreddit,
