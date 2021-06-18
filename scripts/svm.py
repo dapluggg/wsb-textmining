@@ -83,7 +83,7 @@ def buildVectorizedDf(content, labels, vectorizer):
     # put to pandas
     df = pd.DataFrame(cvResults.toarray(), columns=cols)
     df['LABEL'] = labels
-    print(df['LABEL'])
+    #print(df['LABEL'])
 
     return df
 
@@ -189,14 +189,15 @@ cols = ['author','author_premium','created_utc','domain','id','num_comments','bo
 #postPath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_post_results_1.csv'
 
 #filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_post_results_*.csv'
-filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\SVM_Train\\wsb_*.csv'
+filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_*.csv'
 files = g.glob(filePath, recursive=True)
 print(files)
 postDf = pd.DataFrame()
 for f in files:
     print('processing file:', f)
-    df = getData(f, 90000000)
+    df = getData(f, 9000000000)
     df = df[df['body_tickers'] == 'GME']
+    df['body'] = df['body'].str.replace('_', '')
     df['close'] = df['close'].astype(float)
     df['open'] = df['open'].astype(float)
     df = df[(df.close > 0) & (df.open > 0)]
@@ -226,9 +227,6 @@ dd = pdsql.sqldf('select rsi_signal, up_down, count(rsi_signal) frequency from p
 plt.figure(figsize=(10, 10))
 ax = sns.barplot(x="rsi_signal", y="frequency", hue='up_down', data=dd)
 plt.show()
-
-
-
 
 print ('===== UP DOWN PREDICTIONS =====')
 
