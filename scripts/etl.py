@@ -29,8 +29,8 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 # %%
 
 # I set my CPU cores to limit the overhead on the system so I can use my computer while this processes.
-NUM_PROCESSES = 12 #multiprocessing.cpu_count()
-CHUNCK_SIZE = 50000
+NUM_PROCESSES = multiprocessing.cpu_count()
+CHUNCK_SIZE = 10000
 
 def cleanPostDf(df):
     # Rename the self text column to body
@@ -54,6 +54,14 @@ def cleanPostDf(df):
     print('demojize body')
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body'] = list(tqdm.tqdm(pool.map(emoji.demojize, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print('rocket emoji count body')
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['rocket_count'] = list(tqdm.tqdm(pool.map(rocketEmojiCount, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print('diamond hands emoji count body')
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['diamond_hands_count'] = list(tqdm.tqdm(pool.map(diamondHandsEmojiCount, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     print('demojize title')
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
@@ -91,6 +99,14 @@ def cleanCommentsDf(df):
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body'] = list(tqdm.tqdm(pool.map(emoji.demojize, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
+    print('rocket emoji count body')
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['rocket_count'] = list(tqdm.tqdm(pool.map(rocketEmojiCount, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
+    print('diamond hands emoji count body')
+    with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
+        df['diamond_hands_count'] = list(tqdm.tqdm(pool.map(diamondHandsEmojiCount, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+
     print("body filtered")
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body_filtered'] = list(tqdm.tqdm(pool.map(stopWordFilter, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
@@ -112,6 +128,22 @@ def cleanCommentsDf(df):
     df['doc_type'] = 'wsb_comment'
 
     return df
+
+# Given an emoji, count them.
+def rocketEmojiCount(x):
+    if (x == 'nan'):
+        return 0
+    p = re.compile(r'\:rocket\:')
+    cnt = len(p.findall(x))
+    return cnt
+
+# Given an emoji, count them.
+def diamondHandsEmojiCount(x):
+    if (x == 'nan'):
+        return 0
+    p = re.compile(r'\:gem_stone\:\:raising_hands\:')
+    cnt = len(p.findall(x))
+    return cnt
 
 # For the WSB IDs.
 def cleanIds(x):
@@ -243,28 +275,29 @@ def runIngest(on):
         df = cleanCommentsDf(df)
 
     # Polarity subjectivity
-    print("Polarity")
+    print("polarity")
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
-        df['body_polarity'] = list(tqdm.tqdm(pool.map(tb_polarity, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))  # With a progressbar
+        df['body_polarity'] = list(tqdm.tqdm(pool.map(tb_polarity, df['body_filtered'], chunksize=CHUNCK_SIZE), total=df.shape[0]))  # With a progressbar
 
     print("subjectivity")
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
-        df['body_subjectivity'] = list(tqdm.tqdm(pool.map(tb_subjectivity, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+        df['body_subjectivity'] = list(tqdm.tqdm(pool.map(tb_subjectivity, df['body_filtered'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     print('vader sentiment')
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
-        df['body_vadar_sentiment'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+        df['body_vadar_sentiment'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['body_filtered'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
     # Find stock tickers
     print("extract stock tickers")
     with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
         df['body_tickers'] = list(tqdm.tqdm(pool.map(getTickersByRe, df['body'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
-    print("data touch ups.")
+    print("body touch ups.")
     df.body = df.body.str.lower()
     df.body = df.body.str.replace('[\$\(\)]', '', regex=True)
     df.body_filtered = df.body_filtered.str.lower()
     df.body_filtered = df.body_filtered.str.replace('[\$\(\)]', '', regex=True)
+    df.body_filtered = df.body_filtered.str.replace('\:\:', ': :', regex=True)
     df.body_tickers = df.body_tickers.str.strip()
     df.body_tickers = df.body_tickers.str.replace('[\$\(\)]', '', regex=True)
 
@@ -278,16 +311,18 @@ def runIngest(on):
     if (on['job'] == 'wsb_post_results'):
         print('title vadar')
         with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
-            df['title_vadar_sentiment'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
+            df['title_vadar_sentiment'] = list(tqdm.tqdm(pool.map(vadar_sentiment, df['title_filtered'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
         print('title tickers ')
         with concurrent.futures.ProcessPoolExecutor(NUM_PROCESSES) as pool:
             df['title_tickers'] = list(tqdm.tqdm(pool.map(getTickersByRe, df['title'], chunksize=CHUNCK_SIZE), total=df.shape[0]))
 
+        print("title touch ups.")
         df.title = df.title.str.lower()
         df.title = df.title.str.replace('[\$\(\)]', '', regex=True)
         df.title_filtered = df.title_filtered.str.lower()
         df.title_filtered = df.title_filtered.str.replace('[\$\(\)]', '', regex=True)
+        df.title_filtered = df.title_filtered.str.replace('\:\:', ': :', regex=True)
         df.title_tickers = df.title_tickers.str.strip()
         df.title_tickers = df.title_tickers.str.replace('[\$\(\)]', '', regex=True)
 
@@ -300,6 +335,7 @@ def runIngest(on):
 
     df['created_utc_datetime'] = df.created_utc.apply(lambda x: datetime.datetime.fromtimestamp(x))
     df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]] = df[["rsi", "open", "high", "low", "close", "volume", "adjusted"]].fillna(value=0)
+    df['gain'] = df.close - df.open
 
     print ("putting to disk.")
     putToDisk(resultsFileLoc, df)
@@ -311,7 +347,7 @@ def runIngest(on):
 def putToDisk(resultsFileLoc, df):
     currentTime = time.strftime('%Y%m%d%H%M%S', time.localtime())
     size = df.shape[0]
-    step = 250000
+    step = 100000
     end = step
     count = 1
     for x in range(0, size, step):
