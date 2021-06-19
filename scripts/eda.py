@@ -5,32 +5,53 @@ import glob as g
 import matplotlib.pyplot as plt
 import datetime
 import numpy as np
+import re
+import concurrent.futures
+import tqdm
+
+#NUM_PROCESSES = 12
+#CHUNCK_SIZE = 10000
 
 # Read the data from parquet
-def getData (filePath, nrows):
-    glDf = pd.read_csv(filePath, nrows=nrows)
-    return glDf
+def getData ():
+    filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210619\\wsb_*.csv'
+    files = g.glob(filePath, recursive=True)
+    postDf = pd.DataFrame()
+    for f in files:
+        print('processing file:', f)
+        df = pd.read_csv(f)
+        df.body = df.body.astype(str)
+        print(df.shape)
+        postDf = postDf.append(df, ignore_index=True)
+    print(postDf.shape)
+    return postDf
+
+# Print the length statistics.  
+def titleLenStats(df):
+    df['title_length'] = df['title'].str.len()
+    print('===== WSB Title Stats =====')
+    print(df['title_length'].describe())
+    print('Median title length: ', df['title_length'].median())
+    
+def bodyLenStats(df):
+    df['body_length'] = df['body'].str.len()
+    print('===== WSB Body Stats =====')
+    print(df['body_length'].describe())
+    print('Median body length: ', df['body_length'].median())
 
 def main():
-    # File path.
-    postPath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\wsb_post_results.csv'
-    commPath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\wsb_comments_results.csv'
-
     # Get data into DFs.
-    postDf = getData(postPath, 9000000)
-    commDf = getData(commPath, 10000000)
+    postDf = getData()
+    print(postDf)
+    
+    titleLenStats(postDf)
+    bodyLenStats(postDf)
 
-    # Blend the data frames.
-    df = pd.concat([postDf, commDf], sort=False)
-
-    # Correlate subjectivity and polarity with rsi, close, volumne
-    sdf = df[['body_polarity','body_subjectivity','close','doc_type']]
-    sns.scatterplot(data=sdf, x="body_polarity", y="body_subjectivity", 
-                    size='close', sizes=(20,200))
-    plt.show()
+    print("Emoji Stats")
+    print(postDf[['body_polarity','body_subjectivity','rocket_count','diamond_hands_count','gain']].describe())
     
     # How do sentiment correlate to stock data.  
-    corrDf = df[['body_polarity', 'body_subjectivity','rsi','close','volume']]
+    corrDf = postDf[['body_polarity','body_subjectivity','rocket_count','diamond_hands_count','rsi','close','gain','volume','upvote_ratio','num_comments']]
     corrDf = corrDf[(corrDf.rsi > 0 ) & (corrDf.volume > 0 ) & (corrDf.close > 0 )]
     corr = corrDf.corr()
     fig = plt.figure()
@@ -44,13 +65,20 @@ def main():
     ax.set_yticks(ticks)
     ax.set_xticklabels(corrDf.columns)
     ax.set_yticklabels(corrDf.columns)
-    ax.set_xlabel('Correlation Between Sentiment and Stock Info')
+    #ax.set_xlabel('Correlation Between Sentiment and Stock Info')
     plt.show()
     print(corr.shape)
+# %%
+    # Sentiment distribution
+    dd = pdsql.sqldf(
+        'select body_vadar_sentiment, sum(rocket_count) rocket_freq from postDf group by body_vadar_sentiment order by body_vadar_sentiment asc')
+    plt.figure(figsize=(8, 8))
+    ax = sns.barplot(x="body_vadar_sentiment", y="rocket_freq", data=dd)
+    plt.show()
     
-    
+    '''
     # How is volume related to post volume.  
-    sdf = df[['created_utc','volume','author']]
+    sdf = postDf[['created_utc','volume','author']]
     sdf['utc_date'] = sdf.created_utc.apply(lambda x: datetime.date.fromtimestamp(x))
     sdf = sdf[sdf['volume'] != 0]
     q1 = 'SELECT volume, count(author) as post_count from sdf GROUP BY utc_date'
@@ -58,6 +86,13 @@ def main():
     print(dd.shape)
     sns.scatterplot(data=dd, x="volume", y="post_count")
     plt.show()
+
+    # Sentiment distribution
+    dd = pdsql.sqldf('select body_vadar_sentiment, doc_type, count(body_vadar_sentiment) sentiment_count from postDf group by body_vadar_sentiment, doc_type order by body_vadar_sentiment asc')
+    plt.figure(figsize=(8, 8))
+    ax = sns.barplot(x="body_vadar_sentiment", y="sentiment_count", hue='doc_type', data=dd)
+    plt.show()
+    '''
 
 if __name__ == '__main__':
     print("Executing batch process.")
