@@ -41,7 +41,7 @@ def getData (filePath):
     return glDf
 
 def main(on):
-    baseIndexName = 'wsb_post_live'
+    baseIndexName = 'wsb_post_live_20210619'
     print("Processing file, ", on)
     df = getData(on)
 
@@ -52,8 +52,12 @@ def main(on):
 if __name__ == '__main__':
     logMessage("Executing batch process.")
 
-    filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\wsb_*.gzip'
+    filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210619\\live\\wsb_*.gzip'
     files = g.glob(filePath, recursive=True)
+
+    #Used only for loading the API data.
+    #for f in files:
+    #    main(f)
 
     # Multi processing into elastic.
     from multiprocessing import Pool
