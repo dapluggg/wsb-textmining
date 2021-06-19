@@ -92,6 +92,9 @@ PUT _template/wsb_template
         "volume" : {
           "type" : "float"
         },
+        "gain" : {
+          "type" : "float"
+        },
         "body_polarity" : {
           "type" : "float"
         },
@@ -103,6 +106,12 @@ PUT _template/wsb_template
         },
         "title_vadar_sentiment" : {
           "type" : "keyword"
+        },
+        "rocket_count" : {
+          "type" : "integer"
+        },
+        "diamond_hands_count" : {
+          "type" : "integer"
         }
       }
     },
