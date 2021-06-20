@@ -46,12 +46,12 @@ PUT _template/wsb_template
         "body" : {
           "type":"text",
           "fielddata": true,
-          "analyzer": "stop"
+          "analyzer": "whitespace"
         },
         "title" : {
           "type":"text",
           "fielddata": true,
-          "analyzer": "stop"
+          "analyzer": "whitespace"
         },
         "id" : {
           "type" : "keyword"
@@ -92,11 +92,26 @@ PUT _template/wsb_template
         "volume" : {
           "type" : "float"
         },
+        "gain" : {
+          "type" : "float"
+        },
         "body_polarity" : {
           "type" : "float"
         },
         "body_subjectivity" : {
           "type" : "float"
+        },
+        "body_vadar_sentiment" : {
+          "type" : "keyword"
+        },
+        "title_vadar_sentiment" : {
+          "type" : "keyword"
+        },
+        "rocket_count" : {
+          "type" : "integer"
+        },
+        "diamond_hands_count" : {
+          "type" : "integer"
         }
       }
     },
