@@ -19,6 +19,8 @@ import concurrent.futures
 import multiprocessing
 import tqdm
 
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
 #NLTK IMPORTS
 import nltk
 from nltk.corpus import stopwords
@@ -193,9 +195,8 @@ def cleanTitleTickersFields(df):
 
 # Scrub the text of english stopwords from NLTK.
 def stopWordFilter(txt):
-    stopWords = set(stopwords.words('english'))
     t = txt
-    for s in stopWords:
+    for s in ENGLISH_STOP_WORDS:
         pattern = r"\s+" + s + "\s+"
         t = re.sub(pattern, ' ', t)
 
@@ -369,7 +370,7 @@ if __name__ == '__main__':
                       'subreddit_id', 'num_comments', 'upvote_ratio']
     wsbCommHeaders = ['id', 'parent_id', 'link_id', 'author', 'created_utc', 'body', 'subreddit', 'subreddit_id']
 
-    files = g.glob(folderLoc + '\\rawdata\\live\\' + wsbPosts, recursive=True)
+    files = g.glob(folderLoc + '\\rawdata\\' + wsbPosts, recursive=True)
     print(files)
     for f in files:
         # Job definitions
@@ -382,7 +383,7 @@ if __name__ == '__main__':
         runIngest(postDic)
         print('completed posts')
 
-    files = g.glob(folderLoc + '\\rawdata\\live\\' + wsbComments, recursive=True)
+    files = g.glob(folderLoc + '\\rawdata\\' + wsbComments, recursive=True)
     print(files)
     for f in files:
         # Job definitions
