@@ -14,6 +14,7 @@ from sklearn.model_selection import ShuffleSplit
 from sklearn.metrics import plot_confusion_matrix, precision_recall_fscore_support
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.svm import SVC
+from sklearn.naive_bayes import MultinomialNB as MNB
 
 # NLTK
 from nltk import pos_tag
@@ -189,19 +190,19 @@ cols = ['author','author_premium','created_utc','domain','id','num_comments','bo
 #postPath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_post_results_1.csv'
 
 #filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_post_results_*.csv'
-filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210506\\wsb_*.csv'
+filePath = 'C:\\Users\\green\\Documents\\Syracuse_University\\IST_736\\Project\\wsb-textmining\\processed\\20210619\\wsb_*.csv'
 files = g.glob(filePath, recursive=True)
-print(files)
 postDf = pd.DataFrame()
 for f in files:
     print('processing file:', f)
-    df = getData(f, 9000000000)
+    df = getData(f, 10000000000)
     df = df[df['body_tickers'] == 'GME']
-    df['body'] = df['body'].str.replace('_', '')
+    df['body'] = df['body'].str.replace('_', ' ')
+    df['body'] = df['body'].str.replace('\s{2,}', ' ', regex=True)
     df['close'] = df['close'].astype(float)
     df['open'] = df['open'].astype(float)
     df = df[(df.close > 0) & (df.open > 0)]
-    df['gain'] = df.close - df.open
+    #df['gain'] = df.close - df.open
     df['up_down'] = np.where(df.gain > 0, 1, 0)  #UP = 1 DOWN = 0
     df['rsi_signal'] = df.apply(setRsiSignal, axis=1)
     df['created_utc_date'] = pd.to_datetime(df['created_utc_datetime'], format='%Y-%m-%d')
@@ -232,7 +233,7 @@ print ('===== UP DOWN PREDICTIONS =====')
 
 # Extract from the datafame the information needed to build the
 # count vectorizer.
-rArray = postDf['body'].to_numpy()
+rArray = postDf['body_filtered'].to_numpy()
 lArray = postDf['up_down'].to_numpy()
 
 # Vectorize with the sentiment label.
@@ -258,10 +259,32 @@ min_pr_diff = scores['f1'].max()
 m = scores[scores['f1'] == min_pr_diff].reset_index()
 print(m[['fold','f1','precision','recall','score','pr_diff']])
 
+print("TFIDF MNB >- Cross Validation Results.")
+ud_tfidf_vector = buildTFIDFVectorizedDf(rArray, lArray)
+print(ud_tfidf_vector)
+scores = kFoldCrossValidation_updown("MNB_TFIDF", ud_tfidf_vector, 1, MNB())
+print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
+
+# Get the best model off f1 score.
+min_pr_diff = scores['f1'].max()
+m = scores[scores['f1'] == min_pr_diff].reset_index()
+print(m[['fold','f1','precision','recall','score','pr_diff']])
+
+print("COUNT MNB >- Cross Validation Results.")
+ud_count_vector = buildCountVectorizedDf(rArray, lArray)
+print(ud_count_vector)
+scores = kFoldCrossValidation_updown("MNB_COUNT", ud_count_vector, 1, MNB(alpha=1))
+print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
+
+# Get the best model off f1 score.
+min_pr_diff = scores['f1'].max()
+m = scores[scores['f1'] == min_pr_diff].reset_index()
+print(m[['fold','f1','precision','recall','score','pr_diff']])
+
 print ('===== RSI PREDICTIONS =====')
 
 # refresh labels.
-rArray = postDf['body'].to_numpy()
+rArray = postDf['body_filtered'].to_numpy()
 lArray = postDf['rsi_signal'].to_numpy()
 
 # Vectorize with the sentiment label.
@@ -280,6 +303,29 @@ print("COUNT SVM >- Cross Validation Results.")
 ud_count_vector = buildCountVectorizedDf(rArray, lArray)
 print(ud_count_vector)
 scores = kFoldCrossValidation_updown("SVM_COUNT", ud_count_vector, 1, SVC())
+print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
+
+# Get the best model off f1 score.
+min_pr_diff = scores['f1'].max()
+m = scores[scores['f1'] == min_pr_diff].reset_index()
+print(m[['fold','f1','precision','recall','score','pr_diff']])
+
+# Vectorize with the sentiment label.
+print("TFIDF MNB >- Cross Validation Results.")
+ud_tfidf_vector = buildTFIDFVectorizedDf(rArray, lArray)
+print(ud_tfidf_vector)
+scores = kFoldCrossValidation_updown("MNB_TFIDF", ud_tfidf_vector, 1, MNB())
+print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
+
+# Get the best model off f1 score.
+min_pr_diff = scores['f1'].max()
+m = scores[scores['f1'] == min_pr_diff].reset_index()
+print(m[['fold','f1','precision','recall','score','pr_diff']])
+
+print("COUNT MNB >- Cross Validation Results.")
+ud_count_vector = buildCountVectorizedDf(rArray, lArray)
+print(ud_count_vector)
+scores = kFoldCrossValidation_updown("MNB_COUNT", ud_count_vector, 1, MNB())
 print("F1 Cross Val Score: ", round(scores['score'].mean(), 3), '\n')
 
 # Get the best model off f1 score.
